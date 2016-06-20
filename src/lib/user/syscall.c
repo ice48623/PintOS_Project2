@@ -66,6 +66,7 @@ halt (void)
 {
   syscall0 (SYS_HALT);
   NOT_REACHED ();
+  shutdown_power_off();
 }
 
 void
