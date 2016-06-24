@@ -190,6 +190,15 @@ set success or failed of execution.
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+Ensure proper synchronization and avoid race condition by using lock mechanism when p calls wait(C) both before C exits and after C exits.
+
+When P terminated without waiting before C exits, C will become an orphan and will be adopted by init process.
+Therefore, all resources of C will be freed due to periodically invoke wait() by init process.
+If P terminated without waiting for C after C exits, then C will freed it resources automatically.
+P will also freed it resources after finish execution.
+
+No special case so far that we can think of. XD
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
