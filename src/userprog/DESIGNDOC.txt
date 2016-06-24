@@ -204,11 +204,20 @@ No special case so far that we can think of. XD
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+Because it is a simplest way to implement.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+Each process was it own file descriptors list, so it avoid a process pull file descriptor of another file descriptor that belongs to another process.
+
+For disadvantage, since each file descriptor is kept in a list, a process will need to spend all looking up
+for desired file descriptor which is quite costly because a process can have as many file opened as it want as long as it have enough memory.
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+We didn't change anything of tid_t to pid_t mapping.
 
 SURVEY QUESTIONS
 ================
