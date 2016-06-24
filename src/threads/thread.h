@@ -100,6 +100,10 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    /* for syscall */
+    struct list process_list_file;
+    int fd;
   };
 
 /* If false (default), use round-robin scheduler.

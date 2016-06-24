@@ -35,13 +35,24 @@ ARGUMENT PASSING
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+First, slice an input to become one or several arguments by using strtok_r() function.
+Arrange element in the order of number, ex: arg[0] is a first argument of the statement and so on.
+Lastly, avoid overflowing by check the free space of stack and check number of input arguments,
+if number of input argument is grater than a free space in stack, show error.
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
 
+Because strtok() buffer is store as global, if many process call strtok() at the same time,
+issue arise!! So strtok_r() will solve this problem because buffer is located at local for each process.
+
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+1) Reduce workload of kernel
+2) More safety of kernel execution.
 
   SYSTEM CALLS
   ============
@@ -51,6 +62,31 @@ ARGUMENT PASSING
 >> B1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+
+Added to struct thread:
+
+    struct list children;               /* List of the process' children */
+
+
+struct child
+  {
+    struct list_elem elem;              /* List element for a parents children
+                                           list.*/
+    tid_t tid;                          /* The thread's tid.*/
+
+    int exit_status;                    /* The thread's exit status,
+                                           initialized to -1. */
+    struct semaphore wait;              /* Semaphore to control waiting*/
+
+    struct semaphore loading_sema;      /* Semaphore to announce the end of
+                                           process loading (both successful or
+                                           one which ends with an error). */
+
+    bool loaded_status;                 /* True, if process was loaded
+                                           successfully or false otherwise. */
+
+  };
+
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
@@ -64,6 +100,24 @@ file descriptor and this file descriptor is also unique within a process.
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
 
+For Read:
+1) Compare input fd with STDIN_FILENO
+1.1) IF match, create a buffer and use loop to take keyboard input by calling input_getc().
+2) disable interrupt or using lock
+3) For each thread_current(), loop over it file list.
+4) IF input fd match fd from fd of a file in a list, then create an int variable to store actual data write and calling file_read()
+5) IF input fd didn't match any fd from current thread file list, then enable interrupt or release lock and return ERROR
+6) enable interrupt or release lock
+7) return int variable that was store number of actual write
+
+For Write:
+1) Check whether fd is STDIN_FILENO or STDOUT_FILENO
+1.1) IF STDIN_FILENO then, exit(-1)
+1.2) IF STDOUT_FILENO, acquire lock and print the content from the buffer.
+2) call file_write() to write the content from the buffer into an open file.
+3) release locks
+4) return actual write byte
+
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
 >> and the greatest possible number of inspections of the page table
@@ -71,8 +125,27 @@ file descriptor and this file descriptor is also unique within a process.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+For a full page:
+The smallest number is 1 as we get a page head at the first inspection.
+The greatest number can be divided into two cases.
+1) If the pages are contiguous, we first get a kernel virtual address that is not a page head.
+   Then, we check start and end pointer of a page head. So the greatest number is 2.
+2) IF the pages are not contiguous, we need to check a valid access for every address so the greatest number is 4096.
+
+For 2 byte of data:
+The smallest number is 1 because the size of kernel virtual address space is actually bigger than a data (2 byte).
+So it in this page, no need for other inspection.
+
+The greatest number is 2 if the data is not contiguous because it has to inspect for another byte of data where it is located.
+
+For improvement, we cannot think of any.
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+First, find tid in a child struct that was store by current thread.
+If not found, that's mean that tid doen't exist or wait() have been called already.
+If found, wait until that child process complete its execution and terminated.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -88,12 +161,27 @@ file descriptor and this file descriptor is also unique within a process.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+We validate the pointer by using pagedir_get_page() and is_user_vaddr().
+Calling pagedir_get_page() to check that the pointer is not null and to ensure that it is valid.
+Calling is_user_vaddr() to check that it is a virtual address and located below the PHY_BASE.
+Ensuring that the pointer not access the kernel address.
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+For each thread, it will have one more semaphore struct.
+This semaphore will ensure that it will have proper synchronization.
+After process_execute finished it execution, it will return TID of a new process.
+Then, parent process will find that TID from it child process list.
+
+To passed back the status, there will be a variable that store child status. The purpose of this
+variable is to keep track of whether a child process is still alive or dead, since the kernel might terminate it while execution.
+Another thing that will have in child process is a variable that will be set at the end after execution completed. This variable
+set success or failed of execution.
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -125,12 +213,17 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+Yes, but maybe not that much
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+
+An overall steps that student should take as a guideline.
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?

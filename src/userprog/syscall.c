@@ -72,6 +72,10 @@ int filesize (int fd)
 // Didn't check if file could not be read
 int read  (int fd, void *buffer, unsigned size)
 {
+  if (fd == STDIN_FILENO){
+    unsigned i;
+    uint8_t *buffer =
+  }
   enum intr_level old_level;
   old_level = intr_disable();
   int actual_read = file_read(fd, buffer, size);
@@ -87,4 +91,12 @@ int write  (int fd, const void *buffer, unsigned size)
   int actual_write = file_write(fd, buffer, size);
   intr_set_level(old_level);
   return actual_write;
+}
+
+struct file* get_file(int fd){
+  struct thread *cur = current_thread();
+  struct list_elem *e;
+  for(e = list_begin (fd->&process_list_file); e != list_end(fd->&process_list_file); e = list_next (e)) {
+    /* code */
+  }
 }
